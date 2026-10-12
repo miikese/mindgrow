@@ -94,6 +94,10 @@ with sync_playwright() as p:
  page.get_by_role("heading",name="A little daily five.",exact=True).wait_for()
  page.goto(base);page.get_by_role("heading",name="Small puzzles. Big possibilities.",exact=True).wait_for()
  page.screenshot(path="docs/screenshots/mobile.png",full_page=True)
+ # Exercise compact phones, tablets and desktop after the complete feature journey.
+ for width in [320,390,768,1440]:
+  page.set_viewport_size({"width":width,"height":844});page.goto(base)
+  assert page.evaluate("document.documentElement.scrollWidth<=window.innerWidth"),("Horizontal overflow",width)
  assert not errors,errors
  browser.close()
 print("PASS: eight games playable; wrong/correct answers; real Blockly execution; safe iframe; account progress survives reload; child privacy; guardian deletion; mobile navigation/overflow. No browser errors.")

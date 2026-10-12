@@ -28,3 +28,26 @@ See README.md for remaining advanced phases and docs/security.md for limitations
 - The Blockly chunk remains large but is loaded only when visual coding opens.
 - Status: working MVP, continuing development; full curriculum and toolchain
   maintenance remain future phases. Hosted updates must be separately verified.
+
+## 12 October 2026 — restart recovery verified
+
+- Last completed task: Preserved the recovered application and verified its complete browser feature journeys.
+- Current phase: tested recovery checkpoint, independent GitHub and Sites delivery.
+- Implemented recovery improvements: `APP_STATE_DIR` isolates browser fixtures
+  from saved local records; browser checks now assert 320/390/768/1440px layouts.
+- Latest verified source commit before this checkpoint: `5c6cf20a03483037e06ff079f944f39764872364`.
+  The checkpoint commit is available with `git rev-parse HEAD`; the exact final
+  remote SHA/CI/deployment outcomes are recorded in the workspace recovery report.
+- Tests: 26/26 unit/API tests, strict TypeScript and authored-code ESLint
+  passed. Local and hosted Worker production builds passed. Browser journeys
+  passed with no JavaScript errors; screenshots were refreshed.
+- Dependency audit: runtime 0 findings; full toolchain 19 findings
+  (11 high, 5 moderate, 3 low). Benue also passed a clean `npm ci`.
+- Deployment: existing restricted Site confirmed successfully published at
+  `https://mindgrow.readyloom3.chatgpt.site`; this new checkpoint requires its
+  matching source push, saved version and terminal deployment verification.
+- Remaining features: see PRODUCT_PLAN.md; advanced scope is still in development.
+- Next recommended task: verify checkpoint delivery, then review supported
+  build-toolchain upgrades and the project's prioritized product roadmap.
+- Local opening: `python3 /home/student/portfolio-site/scripts/open-local-projects.py`
+  starts all four previews without resetting their normal local databases.

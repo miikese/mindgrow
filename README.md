@@ -105,3 +105,11 @@ The playable MVP does not claim completion of the full advanced feature brief.
 
 No overall software license has been selected. Blockly is Apache-2.0; dependency
 and media license notices retain their original terms.
+
+## Isolated browser verification
+
+Set `APP_STATE_DIR` on the local runner to keep browser fixtures separate from
+your saved data. The default remains `.local-state`; existing records are preserved.
+For example, use `APP_STATE_DIR=/tmp/mindgrow-qa npm run local`,
+then run `python3 scripts/e2e.py` in another terminal. Use a fresh directory for
+each run. Browser checks include 320px, 390px, 768px and 1440px layouts.
