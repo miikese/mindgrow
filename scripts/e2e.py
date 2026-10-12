@@ -75,7 +75,15 @@ with sync_playwright() as p:
  page.get_by_role("heading",name="Look how far you’ve explored.",exact=True).wait_for()
  assert page.locator(".practice-list article").count()==8
  # Remove test-only learner and all associated progress before screenshots.
- assert page.request.delete(base+"/api/records/"+learner["id"]).status==200
+ deletes=[]
+ page.on("request",lambda request:deletes.append(request.url) if request.method=="DELETE" else None)
+ page.get_by_role("button",name="Family space",exact=True).click()
+ page.once("dialog",lambda dialog:dialog.accept())
+ card=page.locator("article.card").filter(has=page.get_by_role("heading",name="Browser QA learner",exact=True))
+ card.get_by_role("button",name="Remove learner",exact=True).click()
+ page.get_by_role("heading",name="Browser QA learner",exact=True).wait_for(state="hidden")
+ assert deletes==[base+"/api/records/"+learner["id"]],deletes
+ assert not any(r["id"]==learner["id"] or r["data"].get("profile")==learner["id"] for r in page.request.get(base+"/api/records?mine=1").json()["records"])
  page.goto(base+"/signout-with-chatgpt?return_to=/")
  page.get_by_role("heading",name="Small puzzles. Big possibilities.",exact=True).wait_for()
  page.screenshot(path="docs/screenshots/desktop.png",full_page=True)

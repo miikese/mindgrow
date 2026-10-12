@@ -78,7 +78,7 @@ npm run build:local
 npm run build
 ```
 
-24 executed rule/API tests cover all game engines and private profile permissions.
+26 executed rule/API tests cover all game engines and private profile permissions.
 Python Playwright exercises all eight games, including actual Blockly commands,
 wrong/correct answers, persistence after reload, safe preview configuration,
 account privacy, deletion and mobile layouts. See docs/testing.md.

@@ -15,3 +15,23 @@ it("enforces the selected age-appropriate path on the server",async()=>{const id
 it("rejects invalid levels, games and attempt counts",async()=>{const id=await profile();for(const data of [{game:"unknown",level:1,attempts:1},{game:"memory",level:0,attempts:1},{game:"memory",level:1,attempts:-1}])expect((await call("records","POST",{kind:"progress",data:{profile:id,...data,complete:true}})).status).toBe(400);});
 it("deleting a learner also removes associated private progress",async()=>{const id=await profile();await call("records","POST",{kind:"progress",data:{profile:id,game:"memory",level:1,attempts:1,complete:true}});expect((await call("records/"+id,"DELETE")).status).toBe(200);expect((await call("records?mine=1")).body.records).toHaveLength(0);});
 it("rejects account access without identity",async()=>{ctx.user=null;expect((await call("account","DELETE")).status).toBe(401);});
+
+it("removes long learner histories with one atomic request and preserves other learners",async()=>{
+ const id=await profile(),kept=await profile();
+ const now=new Date().toISOString();
+ await db.batch(Array.from({length:45},(_,i)=>db.prepare("INSERT INTO records(id,kind,owner,status,data,created,updated) VALUES(?,?,?,?,?,?,?)").bind("history-"+i,"progress",user.userId,"private",JSON.stringify({profile:id,game:"memory"}),now,now)));
+ await call("records","POST",{kind:"progress",data:{profile:kept,game:"memory",level:1,attempts:1,complete:true}});
+ expect((await call("records/"+id,"DELETE")).status).toBe(200);
+ const records=(await call("records?mine=1")).body.records;
+ expect(records).toHaveLength(2);
+ expect(records.some((r:any)=>r.data.profile===id)).toBe(false);
+ expect(records.some((r:any)=>r.data.profile===kept)).toBe(true);
+});
+it("scopes private history before limiting unrelated households",async()=>{
+ const id=await profile();
+ await db.batch(Array.from({length:1001},(_,i)=>db.prepare("INSERT INTO records(id,kind,owner,status,data,created,updated) VALUES(?,?,?,?,?,?,?)").bind("other-history-"+i,"progress","other-household","private",JSON.stringify({profile:"other"}),"2099-01-01","2099-01-01")));
+ expect((await call("records?mine=1")).body.records.map((r:any)=>r.id)).toEqual([id]);
+ expect((await call("records")).body.records).toEqual([]);
+ ctx.user={userId:"other",displayName:"Other"};
+ expect((await call("records/"+id,"DELETE")).status).toBe(403);
+});

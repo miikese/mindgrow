@@ -21,3 +21,18 @@
 Follow-up: formal retention/export policy, guardian PIN/session protections,
 more accessibility review of Blockly, verified age/guardian consent requirements
 before large-scale deployment, and production backup/recovery monitoring.
+
+## Dependency review — 12 October 2026
+
+Targeted patch updates remove all findings from `npm audit --omit=dev` (0 total).
+The full audit still reports development-tool dependencies: 11 high, 5 moderate
+and 3 low findings (19 packages including parent propagation). These include
+glob/parser dependencies of ESLint/Vinext, tooling and migration-time utilities.
+The apps do not accept user-supplied build configurations, source globs or
+migration files. Keep preview servers on loopback and build only trusted source.
+A full supported toolchain upgrade and revalidation remains necessary; a clean
+production dependency audit does not mean the entire build toolchain is clean.
+
+`npm audit fix` failed with an internal npm 10 dependency-graph error. Targeted
+manifest updates and a committed lockfile were used instead of forcing major
+upgrades or accepting a framework downgrade. Re-audit on every dependency change.

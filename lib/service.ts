@@ -52,7 +52,10 @@ export async function handle(req:Request,ctx:Context):Promise<Response> {
   if(path==="records" && req.method==="GET") {
    const kind=url.searchParams.get("kind")||"",mine=url.searchParams.get("mine")==="1",review=url.searchParams.get("review")==="1";
    if(mine)signed();if(review)await admin();
-   let rows:Stored[]=await all("SELECT * FROM records ORDER BY created DESC LIMIT 1000");
+   // Apply ownership before the limit so other households cannot displace a learner.
+   let rows:Stored[]=mine
+    ? await all("SELECT * FROM records WHERE owner=? ORDER BY created DESC LIMIT 1000",user!.userId)
+    : review ? await all("SELECT * FROM records ORDER BY created DESC LIMIT 1000") : [];
    if(!review) rows=rows.filter(r=>mine?r.owner===user!.userId:domain.publicKinds.includes(r.kind)&&domain.publicStatuses.includes(r.status));
    if(kind)rows=rows.filter(r=>r.kind===kind);
    const counts=rows.reduce((a:Record<string,number>,r)=>({...a,[r.status]:(a[r.status]||0)+1}),{});
