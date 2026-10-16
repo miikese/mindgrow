@@ -9,3 +9,6 @@ export const audit = sqliteTable("audit", {id:text("id").primaryKey(),record:tex
 export const notifications = sqliteTable("notifications", {id:text("id").primaryKey(),owner:text("owner").notNull(),message:text("message").notNull(),read:integer("read").notNull().default(0),created:text("created").notNull()});
 export const uploads = sqliteTable("uploads", {id:text("id").primaryKey(),owner:text("owner").notNull(),mime:text("mime").notNull(),created:text("created").notNull()});
 export const limits = sqliteTable("limits", {id:text("id").primaryKey(),count:integer("count").notNull()});
+
+export const ownerSessions = sqliteTable("owner_sessions", {id:text("id").primaryKey(),email:text("email").notNull(),credentialDigest:text("credential_digest").notNull(),expires:integer("expires").notNull(),created:text("created").notNull()},t=>[index("owner_sessions_expiry").on(t.expires)]);
+export const siteSettings = sqliteTable("site_settings", {id:text("id").primaryKey(),data:text("data").notNull(),updated:text("updated").notNull(),actor:text("actor").notNull()});

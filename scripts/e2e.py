@@ -1,5 +1,7 @@
 """Run all eight playable games against the built app. pip install playwright."""
 import os,time
+from pathlib import Path
+Path("outputs/browser-qa").mkdir(parents=True,exist_ok=True)
 from urllib.request import urlopen
 from playwright.sync_api import sync_playwright
 base=os.environ.get("APP_URL","http://127.0.0.1:3102")
@@ -26,6 +28,7 @@ with sync_playwright() as p:
  def start(name):
   page.get_by_role("button",name=name,exact=False).click()
   page.get_by_role("heading",name=name,exact=True).wait_for()
+  if page.locator(".game-hub").count():page.get_by_role("button",name="Start playing",exact=True).click()
  def done():
   page.get_by_role("heading",name="You did it.",exact=True).wait_for()
   page.get_by_text("Practice saved. Keep exploring at your own pace.",exact=True).wait_for()
@@ -86,14 +89,14 @@ with sync_playwright() as p:
  assert not any(r["id"]==learner["id"] or r["data"].get("profile")==learner["id"] for r in page.request.get(base+"/api/records?mine=1").json()["records"])
  page.goto(base+"/signout-with-chatgpt?return_to=/")
  page.get_by_role("heading",name="Small puzzles. Big possibilities.",exact=True).wait_for()
- page.screenshot(path="docs/screenshots/desktop.png",full_page=True)
+ page.screenshot(path="outputs/browser-qa/original-desktop.png",full_page=True)
  page.set_viewport_size({"width":390,"height":844});page.reload()
  page.get_by_role("heading",name="Small puzzles. Big possibilities.",exact=True).wait_for()
  assert page.evaluate("document.documentElement.scrollWidth<=window.innerWidth")
  page.get_by_role("button",name="Open navigation").click();page.get_by_role("button",name="Daily five",exact=True).click()
  page.get_by_role("heading",name="A little daily five.",exact=True).wait_for()
  page.goto(base);page.get_by_role("heading",name="Small puzzles. Big possibilities.",exact=True).wait_for()
- page.screenshot(path="docs/screenshots/mobile.png",full_page=True)
+ page.screenshot(path="outputs/browser-qa/original-mobile.png",full_page=True)
  # Exercise compact phones, tablets and desktop after the complete feature journey.
  for width in [320,390,768,1440]:
   page.set_viewport_size({"width":width,"height":844});page.goto(base)

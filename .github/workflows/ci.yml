@@ -26,10 +26,14 @@ jobs:
       - run: pip install playwright
       - run: python -m playwright install --with-deps chromium
       - run: |
-          PORT=3102 npm run local > /tmp/app.log 2>&1 &
+          node scripts/create-qa-fixtures.mjs
+          APP_ENV_FILE=outputs/browser-qa/owner.env APP_STATE_DIR=/tmp/mindgrow-ci PORT=3102 npm run local > /tmp/app.log 2>&1 &
           python scripts/e2e.py || { cat /tmp/app.log; exit 1; }
+          python scripts/e2e-expansion.py
+          python scripts/e2e-rules-exams.py
+          python scripts/e2e-admin-access.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: browser-evidence
-          path: docs/screenshots/
+          path: outputs/browser-qa/*.png

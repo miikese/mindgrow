@@ -10,7 +10,7 @@
     "dev": "node scripts/run-framework.mjs dev",
     "build": "node scripts/run-framework.mjs build",
     "start": "node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js dev --config dist/server/wrangler.json --local --persist-to .wrangler/state --ip 127.0.0.1 --inspector-port 0",
-    "lint": "eslint app lib/service.ts lib/domain.ts lib/client.ts lib/local-entry.ts tests db browser.tsx scripts/local-server.mjs scripts/build-local.mjs",
+    "lint": "eslint app lib tests db browser.tsx scripts/local-server.mjs scripts/build-local.mjs scripts/configure-owner.mjs scripts/create-qa-fixtures.mjs",
     "db:generate": "drizzle-kit generate",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

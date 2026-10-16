@@ -1,9 +1,12 @@
+import {handleOwnerAuth,resolveOwnerSession,ownerIdentityId} from "./owner-auth";
+import {handleAdministration} from "./admin-service";
+import {handleAssessments} from "./assessment-service";
 import * as domain from "./domain";
-export type Identity = {userId:string;displayName:string;email?:string}|null;
+export type Identity = {userId:string;displayName:string;email?:string;authMethod?:"owner-password"|"platform"}|null;
 export type Stored = {id:string;kind:string;owner:string;status:string;data:string;created:string;updated:string};
 type BindValue = string|number|null;
 export type DB = {prepare(sql:string):{bind(...values:BindValue[]):any;first<T=any>():Promise<T|null>;all<T=any>():Promise<{results:T[]}>;run():Promise<any>};batch(statements:any[]):Promise<any>};
-export type Context = {db:DB;user:Identity;adminIds:string[];adminEmails?:string[];bucket?:R2Bucket;seed?:{id:string;kind:string;status:string;data:Record<string,unknown>}[]};
+export type Context = {db:DB;user:Identity;adminIds:string[];adminEmails?:string[];ownerEmail?:string;ownerPasswordHash?:string;bucket?:R2Bucket;seed?:{id:string;kind:string;status:string;data:Record<string,unknown>}[]};
 export function json(value:unknown,status=200) {
  return new Response(JSON.stringify(value),{status,headers:{"content-type":"application/json","cache-control":"no-store","x-content-type-options":"nosniff","referrer-policy":"strict-origin-when-cross-origin"}});
 }
@@ -24,6 +27,13 @@ export function serialize(row:Stored,privateView=false) {
  return {...safe,...(privateView?{owner}:{}),data:JSON.parse(row.data)};
 }
 export async function handle(req:Request,ctx:Context):Promise<Response> {
+ try {
+  const authentication=await handleOwnerAuth(req,ctx);if(authentication)return authentication;
+  const owner=await resolveOwnerSession(req,ctx);
+  return await handleRequest(req,{...ctx,adminEmails:[...(ctx.adminEmails||[]),...(ctx.ownerEmail?[ctx.ownerEmail.trim().toLowerCase()]:[])],...(owner?{user:owner,adminIds:[...ctx.adminIds,ownerIdentityId(ctx.ownerEmail!)]}:{})});
+ }catch{return json({error:"Sign-in is temporarily unavailable."},503)}
+}
+async function handleRequest(req:Request,ctx:Context):Promise<Response> {
  const {db,user}=ctx,url=new URL(req.url),path=url.pathname.replace(/^\/api\/?/,""),now=new Date().toISOString();
  const id=()=>crypto.randomUUID();
  const stmt=(sql:string,...args:BindValue[])=>db.prepare(sql).bind(...args);
@@ -38,8 +48,10 @@ export async function handle(req:Request,ctx:Context):Promise<Response> {
    const key=user!.userId+":"+Math.floor(Date.now()/60000);
    const limit=await stmt("INSERT INTO limits(id,count) VALUES(?,1) ON CONFLICT(id) DO UPDATE SET count=count+1 RETURNING count",key).first();
    if(limit.count>35)error("Please wait a minute before trying again.",429);
-   if(Math.random()<0.02) await stmt("DELETE FROM limits WHERE id NOT LIKE ?", "%:"+Math.floor(Date.now()/60000)).run();
+   if(Math.random()<0.02) await stmt("DELETE FROM limits WHERE id NOT LIKE ? AND id NOT LIKE 'owner-login:%'", "%:"+Math.floor(Date.now()/60000)).run();
   }
+  const administration=await handleAdministration(req,ctx,()=>body(req));if(administration)return administration;
+  const assessment=await handleAssessments({req,ctx,path,now,readBody:()=>body(req)});if(assessment)return assessment;
   if(path==="seed" && req.method==="POST") {
    await admin();const seed=ctx.seed||[];if(seed.length)await db.batch(seed.map(r=>stmt("INSERT OR IGNORE INTO records(id,kind,owner,status,data,created,updated) VALUES(?,?,?,?,?,?,?)",r.id,r.kind,"osm-import",r.status,JSON.stringify(r.data),now,now)));return json({imported:seed.length});
   }
@@ -47,7 +59,7 @@ export async function handle(req:Request,ctx:Context):Promise<Response> {
    if(!user)return json({user:null});
    await stmt("INSERT INTO users(id,name,role) VALUES(?,?,'member') ON CONFLICT(id) DO UPDATE SET name=excluded.name",user.userId,user.displayName).run();
    const u=await stmt("SELECT * FROM users WHERE id=?",user.userId).first();
-   return json({user:{id:user.userId,name:user.displayName,role:(ctx.adminIds.includes(user.userId)||(user.email&&ctx.adminEmails?.includes(user.email.toLowerCase())))?"admin":u.role},notifications:await all("SELECT * FROM notifications WHERE owner=? ORDER BY created DESC LIMIT 50",user.userId)});
+   return json({user:{id:user.userId,name:user.displayName,authMethod:user.authMethod||"platform",role:(ctx.adminIds.includes(user.userId)||(user.email&&ctx.adminEmails?.includes(user.email.toLowerCase())))?"admin":u.role},notifications:await all("SELECT * FROM notifications WHERE owner=? ORDER BY created DESC LIMIT 50",user.userId)});
   }
   if(path==="records" && req.method==="GET") {
    const kind=url.searchParams.get("kind")||"",mine=url.searchParams.get("mine")==="1",review=url.searchParams.get("review")==="1";
@@ -63,7 +75,7 @@ export async function handle(req:Request,ctx:Context):Promise<Response> {
   }
   if(path==="records" && req.method==="POST") {
    const u=signed(),d=await body(req),kind=String(d.kind),data=domain.validate(kind,d.data||{}),record=id(),status=domain.initialStatus(kind);
-   if(kind==="progress"){const learner=await stmt("SELECT data FROM records WHERE id=? AND owner=? AND kind='profile'",String(data.profile),u.userId).first();if(!learner)error("Choose your own learner profile.",403);if(!domain.allowedGames[JSON.parse(learner.data).group]?.includes(data.game))error("Choose a game for this learning path.",403);}
+   if(kind==="progress"){const learner=await stmt("SELECT data FROM records WHERE id=? AND owner=? AND kind='profile'",String(data.profile),u.userId).first();if(!learner)error("Choose your own learner profile.",403);}
    if(data.photo && !await stmt("SELECT id FROM uploads WHERE id=? AND owner=?",String(data.photo),u.userId).first())error("Invalid photo.");
    await db.batch([
     stmt("INSERT INTO records(id,kind,owner,status,data,created,updated) VALUES(?,?,?,?,?,?,?)",record,kind,u.userId,status,JSON.stringify(data),now,now),
@@ -97,7 +109,7 @@ export async function handle(req:Request,ctx:Context):Promise<Response> {
    }
    if(req.method==="DELETE") {
     const u=signed();if(row.owner!==u.userId)await admin();
-    await db.batch([...(row.kind==="profile"?[stmt("DELETE FROM audit WHERE record IN (SELECT id FROM records WHERE kind='progress' AND owner=? AND json_extract(data,'$.profile')=?)",u.userId,record),stmt("DELETE FROM records WHERE kind='progress' AND owner=? AND json_extract(data,'$.profile')=?",u.userId,record)]:[]),stmt("DELETE FROM records WHERE id=?",record),stmt("DELETE FROM actions WHERE record=?",record),stmt("DELETE FROM audit WHERE record=?",record)]);
+    await db.batch([...(row.kind==="profile"?[stmt("DELETE FROM audit WHERE record IN (SELECT id FROM records WHERE kind IN ('progress','lesson','exam') AND owner=? AND json_extract(data,'$.profile')=?)",row.owner,record),stmt("DELETE FROM records WHERE kind IN ('progress','lesson','exam') AND owner=? AND json_extract(data,'$.profile')=?",row.owner,record)]:[]),stmt("DELETE FROM records WHERE id=?",record),stmt("DELETE FROM actions WHERE record=?",record),stmt("DELETE FROM audit WHERE record=?",record)]);
     return json({deleted:true});
    }
   }

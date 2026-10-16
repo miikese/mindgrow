@@ -1,8 +1,9 @@
+import {MAX_LEVEL,catalogue} from "./catalogue";
 export const groups = ["Little Thinkers","Young Coders","Future Developers","Mind Fitness"];
-export const allowedGames:Record<string,string[]>={"Little Thinkers":["memory","pattern","sequence","maze"],"Young Coders":["memory","pattern","sequence","maze","blockly","word"],"Future Developers":["memory","pattern","sequence","maze","blockly","sudoku","word","html"],"Mind Fitness":["memory","pattern","sequence","maze","blockly","sudoku","word","html"]};
-export const games = ["memory","pattern","sequence","maze","blockly","sudoku","word","html"];
+export const games = catalogue.map(g=>g.id);
+export const allowedGames:Record<string,string[]>={"Little Thinkers":["memory","pattern","sequence","maze","recall","math"],"Young Coders":games.filter(g=>g!=="html"&&g!=="sudoku"),"Future Developers":games,"Mind Fitness":games};
 export const publicKinds:string[]=[];
-export const privateKinds=["profile","progress"];
+export const privateKinds=["profile","progress","lesson","exam"];
 export const publicStatuses:string[]=[];
 export const initialStatus=(_kind:string)=>"private";
 export function text(v:unknown,name:string,min=1,max=200) {
@@ -18,7 +19,7 @@ export function validate(kind:string,d:Record<string,unknown>):Record<string,any
  if(kind==="progress"){
   if(!games.includes(String(d.game)))throw new Error("Unknown game.");
   const level=Number(d.level),attempts=Number(d.attempts),hints=Number(d.hints||0);
-  if(!Number.isInteger(level)||level<1||level>50||!Number.isInteger(attempts)||attempts<1||attempts>10000||!Number.isInteger(hints)||hints<0||hints>10000)throw new Error("Invalid practice result.");
+  if(!Number.isInteger(level)||level<1||level>MAX_LEVEL||!Number.isInteger(attempts)||attempts<1||attempts>10000||!Number.isInteger(hints)||hints<0||hints>10000)throw new Error("Invalid practice result.");
   if(typeof d.complete!=="boolean")throw new Error("Invalid completion result.");
   return {profile:text(d.profile,"Profile",1,100),game:d.game,level,attempts,hints,complete:d.complete,difficulty:["easy","medium","hard"].includes(String(d.difficulty))?d.difficulty:"easy",points:d.complete?Math.max(5,30-hints*3):0,private:true};
  }

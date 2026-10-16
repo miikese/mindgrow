@@ -4,6 +4,9 @@ import {DatabaseSync} from "node:sqlite";
 import {readFileSync,writeFileSync,existsSync,mkdirSync,readdirSync,unlinkSync} from "node:fs";
 import {resolve,extname} from "node:path";
 import {randomBytes} from "node:crypto";
+import {loadEnvFile} from "node:process";
+const appEnvFile=process.env.APP_ENV_FILE||".env.local";
+if(existsSync(appEnvFile))loadEnvFile(appEnvFile);
 import {handle,coordinates} from "../.local-build/service.mjs";
 const port=Number(process.env.PORT||3102),state=resolve(process.env.APP_STATE_DIR||".local-state"),assets=resolve(".local-build/client");
 mkdirSync(state+"/uploads",{recursive:true});
@@ -40,7 +43,7 @@ createServer(async(req,res)=>{
      const d=await r.json();if(!r.ok||d.code!=="Ok"||!d.routes?.length)throw new Error("No route found");
      const route=d.routes[0];response=Response.json({distance:route.distance,duration:route.duration,geometry:route.geometry,steps:route.legs.flatMap(l=>l.steps)});
     }catch{response=Response.json({error:"Routing is unavailable. Use Open directions to view a supported provider."},{status:503});}
-   }else response=await handle(request,{db,user,adminIds:["local_seedy"],bucket});
+   }else response=await handle(request,{db,user,adminIds:process.env.LOCAL_DEVELOPMENT_OWNER==="1"?["local_seedy"]:[],ownerEmail:process.env.OWNER_EMAIL,ownerPasswordHash:process.env.OWNER_PASSWORD_HASH,bucket});
    res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));return;
   }
   const file=resolve(assets,"."+decodeURIComponent(u.pathname));
