@@ -45,7 +45,7 @@ export function validSudoku(grid:number[][]){
  for(let y=0;y<4;y+=2)for(let x=0;x<4;x+=2)if(!valid([grid[y][x],grid[y][x+1],grid[y+1][x],grid[y+1][x+1]]))return false;
  return true;
 }
-const wordBank:[string,string][]=[
+export const wordBank:[string,string][]=[
  ["BENUE","A Nigerian state where Otukpo is located."],["LEARN","Discover a skill or a new idea."],["GROW","Develop over time, like a seedling."],["THINK","Use your mind to consider an idea."],["CODE","Instructions written for a computer."],
  ["SEED","The tiny beginning of a plant."],["LEAF","A green part that grows on a branch."],["TREE","A tall plant with a woody trunk."],["RAIN","Water falling from clouds."],["SUN","The star that lights our day."],
  ["MOON","Our natural satellite in the night sky."],["STAR","A distant light in the night sky."],["CLOUD","A group of tiny water droplets in the sky."],["RIVER","Water flowing toward a lake or sea."],["OCEAN","A vast body of salt water."],
@@ -81,4 +81,12 @@ export function nextDifficulty(results:{complete:boolean;attempts:number}[]){
  if(recent.length>=2&&recent.filter(r=>!r.complete||r.attempts>4).length>=2)return"easy";
  if(recent.length===3&&recent.every(r=>r.complete&&r.attempts<=2))return"hard";
  return"medium";
+}
+
+export function spellingPuzzle(level:number,difficulty="easy"){
+ const vocabulary=wordBank.filter(([w])=>w!=="BENUE");
+ const band=difficulty==="hard"?vocabulary.filter(([w])=>w.length>=7):difficulty==="medium"?vocabulary.filter(([w])=>w.length>=5&&w.length<=7):vocabulary.filter(([w])=>w.length<=5);
+ const [answer,clue]=band[(level-1)%band.length];let letters=shuffle(answer.split(""),level*53+19);if(letters.join("")===answer)letters=[...letters.slice(1),letters[0]];
+ const mode=(["tiles","missing","recall"] as const)[(level-1)%3],blanks=new Set(shuffle(Array.from({length:answer.length},(_,i)=>i),level*71).slice(0,Math.max(1,Math.floor(answer.length/2))));
+ return{answer,clue,letters,mode,pattern:answer.split("").map((c,i)=>blanks.has(i)?"_":c)};
 }

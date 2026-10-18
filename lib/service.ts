@@ -1,4 +1,5 @@
 import {handleOwnerAuth,resolveOwnerSession,ownerIdentityId} from "./owner-auth";
+import {handleRewards,levelReward,wallet} from "./rewards";
 import {handleAdministration} from "./admin-service";
 import {handleAssessments} from "./assessment-service";
 import * as domain from "./domain";
@@ -51,6 +52,7 @@ async function handleRequest(req:Request,ctx:Context):Promise<Response> {
    if(Math.random()<0.02) await stmt("DELETE FROM limits WHERE id NOT LIKE ? AND id NOT LIKE 'owner-login:%'", "%:"+Math.floor(Date.now()/60000)).run();
   }
   const administration=await handleAdministration(req,ctx,()=>body(req));if(administration)return administration;
+  const rewards=await handleRewards(req,ctx,()=>body(req));if(rewards)return rewards;
   const assessment=await handleAssessments({req,ctx,path,now,readBody:()=>body(req)});if(assessment)return assessment;
   if(path==="seed" && req.method==="POST") {
    await admin();const seed=ctx.seed||[];if(seed.length)await db.batch(seed.map(r=>stmt("INSERT OR IGNORE INTO records(id,kind,owner,status,data,created,updated) VALUES(?,?,?,?,?,?,?)",r.id,r.kind,"osm-import",r.status,JSON.stringify(r.data),now,now)));return json({imported:seed.length});
@@ -75,13 +77,14 @@ async function handleRequest(req:Request,ctx:Context):Promise<Response> {
   }
   if(path==="records" && req.method==="POST") {
    const u=signed(),d=await body(req),kind=String(d.kind),data=domain.validate(kind,d.data||{}),record=id(),status=domain.initialStatus(kind);
-   if(kind==="progress"){const learner=await stmt("SELECT data FROM records WHERE id=? AND owner=? AND kind='profile'",String(data.profile),u.userId).first();if(!learner)error("Choose your own learner profile.",403);}
+   if(kind==="progress"){const learner=await stmt("SELECT data FROM records WHERE id=? AND owner=? AND kind='profile'",String(data.profile),u.userId).first();if(!learner)error("Choose your own learner profile.",403);await wallet(db,String(data.profile));}
    if(data.photo && !await stmt("SELECT id FROM uploads WHERE id=? AND owner=?",String(data.photo),u.userId).first())error("Invalid photo.");
    await db.batch([
     stmt("INSERT INTO records(id,kind,owner,status,data,created,updated) VALUES(?,?,?,?,?,?,?)",record,kind,u.userId,status,JSON.stringify(data),now,now),
-    stmt("INSERT INTO audit(id,record,actor,status,note,created) VALUES(?,?,?,?,?,?)",id(),record,u.userId,status,"Submitted for review",now)
+    stmt("INSERT INTO audit(id,record,actor,status,note,created) VALUES(?,?,?,?,?,?)",id(),record,u.userId,status,"Submitted for review",now),
+    ...(kind==="progress"&&data.complete?[levelReward(db,data,now)]:[])
    ]);
-   return json({id:record,status},201);
+   return json({id:record,status,...(kind==="progress"?{wallet:await wallet(db,String(data.profile))}:{})},201);
   }
   if(path.startsWith("records/")) {
    const record=decodeURIComponent(path.split("/")[1]),row:Stored|null=await stmt("SELECT * FROM records WHERE id=?",record).first();
@@ -109,7 +112,7 @@ async function handleRequest(req:Request,ctx:Context):Promise<Response> {
    }
    if(req.method==="DELETE") {
     const u=signed();if(row.owner!==u.userId)await admin();
-    await db.batch([...(row.kind==="profile"?[stmt("DELETE FROM audit WHERE record IN (SELECT id FROM records WHERE kind IN ('progress','lesson','exam') AND owner=? AND json_extract(data,'$.profile')=?)",row.owner,record),stmt("DELETE FROM records WHERE kind IN ('progress','lesson','exam') AND owner=? AND json_extract(data,'$.profile')=?",row.owner,record)]:[]),stmt("DELETE FROM records WHERE id=?",record),stmt("DELETE FROM actions WHERE record=?",record),stmt("DELETE FROM audit WHERE record=?",record)]);
+    await db.batch([...(row.kind==="profile"?[stmt("DELETE FROM audit WHERE record IN (SELECT id FROM records WHERE kind IN ('progress','lesson','exam') AND owner=? AND json_extract(data,'$.profile')=?)",row.owner,record),stmt("DELETE FROM records WHERE kind IN ('progress','lesson','exam') AND owner=? AND json_extract(data,'$.profile')=?",row.owner,record)]:[]),...(row.kind==="profile"?[stmt("DELETE FROM learner_rewards WHERE profile=?",record)]:[]),stmt("DELETE FROM records WHERE id=?",record),stmt("DELETE FROM actions WHERE record=?",record),stmt("DELETE FROM audit WHERE record=?",record)]);
     return json({deleted:true});
    }
   }
@@ -136,7 +139,7 @@ async function handleRequest(req:Request,ctx:Context):Promise<Response> {
    await db.batch([
     stmt("DELETE FROM audit WHERE record IN (SELECT id FROM records WHERE owner=?)",u.userId),
     stmt("DELETE FROM actions WHERE record IN (SELECT id FROM records WHERE owner=?)",u.userId),
-    stmt("DELETE FROM records WHERE owner=?",u.userId),stmt("DELETE FROM actions WHERE owner=?",u.userId),
+    stmt("DELETE FROM learner_rewards WHERE profile IN (SELECT id FROM records WHERE owner=?)",u.userId),stmt("DELETE FROM records WHERE owner=?",u.userId),stmt("DELETE FROM actions WHERE owner=?",u.userId),
     stmt("DELETE FROM notifications WHERE owner=?",u.userId),stmt("DELETE FROM uploads WHERE owner=?",u.userId),stmt("DELETE FROM users WHERE id=?",u.userId),
     stmt("UPDATE audit SET actor='deleted-user' WHERE actor=?",u.userId)
    ]);return json({deleted:true});

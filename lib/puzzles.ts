@@ -20,3 +20,14 @@ export function toggleLantern(board:boolean[],index:number){return board.map((v,
 export function lanternPuzzle(level:number){let board=Array(9).fill(true) as boolean[];const mask=(level*73)%512;for(let index=0;index<9;index++)if(mask&(1<<index))board=toggleLantern(board,index);return board;}
 export function recallPuzzle(level:number,difficulty="easy"){return shuffled(Array.from({length:20},(_,i)=>i%4),level*71).slice(0,Math.min(9,3+Math.floor((level-1)/15)+(difficulty==="hard"?2:difficulty==="medium"?1:0)));}
 export function mathPuzzle(level:number,difficulty="easy"){const a=2+level,b=2+level%9,op=level%3===0?"×":level%3===1?"+":"−";return{a:difficulty==="easy"?2+level%15:a,b,op,target:op==="×"?(difficulty==="easy"?2+level%15:a)*b:op==="+"?(difficulty==="easy"?2+level%15:a)+b:(difficulty==="easy"?2+level%15:a)-b};}
+
+// Breadth-first search starts from the live position, including after a detour.
+export function mazeRoute(maze:MazeLayout,from:Point){
+ const queue=[{point:from,path:[] as string[]}],seen=new Set([from.x+","+from.y]);
+ for(let i=0;i<queue.length;i++){const {point,path}=queue[i];if(point.x===maze.goal.x&&point.y===maze.goal.y)return path;
+  for(const direction of ["up","right","down","left"]){const next=moveInMaze(point,direction,maze),key=next.point.x+","+next.point.y;if(!next.blocked&&!seen.has(key)){seen.add(key);queue.push({point:next.point,path:[...path,direction]})}}
+ }return [];
+}
+export function lanternSolution(board:boolean[]){
+ for(let mask=0;mask<512;mask++){let next=board;const taps:number[]=[];for(let i=0;i<9;i++)if(mask&(1<<i)){next=toggleLantern(next,i);taps.push(i)}if(next.every(Boolean))return taps}return [];
+}

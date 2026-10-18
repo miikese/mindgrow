@@ -17,7 +17,7 @@ with sync_playwright() as p:
         page.get_by_role("navigation",name="Main navigation").get_by_role("button",name=name,exact=True).click()
     def choose(name):page.locator(".game-card").filter(has=page.get_by_role("heading",name=name,exact=True)).click()
     page.goto(base)
-    assert page.locator(".game-card").count()==13
+    assert page.locator(".game-card").count()==8
     assert page.get_by_role("navigation",name="Main navigation").get_by_role("button",name="Game rules",exact=True).count()==0
     choose("Fruit friends")
     page.get_by_role("heading",name="How to play",exact=False).count()
@@ -36,7 +36,7 @@ with sync_playwright() as p:
     assert page.get_by_label("Choose a level",exact=True).input_value()=="2"
     page.locator(".inline-rules summary").click()
     assert "1 of 100 levels explored" in page.locator(".inline-rules").inner_text()
-    nav("Learning garden");choose("Word wander")
+    nav("Learning garden");choose("Spelling studio")
     page.get_by_text("Sign up to unlock this game.",exact=True).wait_for()
     assert page.locator(".answer-form").count()==0
     page.screenshot(path=str(output/"game-welcome-desktop.png"),full_page=True,animations="disabled")
@@ -59,8 +59,8 @@ with sync_playwright() as p:
     page.get_by_role("button",name="Create private learner",exact=False).click()
     page.get_by_text("Hello, Member QA learner.",exact=True).wait_for()
     profile=next(r for r in page.request.get(base+"/api/records?mine=1").json()["records"] if r["kind"]=="profile" and r["data"]["name"]=="Member QA learner")
-    choose("Word wander");page.get_by_role("button",name="Start playing",exact=True).click()
-    page.get_by_label("Your word",exact=True).fill("BENUE")
+    choose("Spelling studio");page.get_by_role("button",name="Start playing",exact=True).click()
+    page.get_by_label("Your word",exact=True).fill("LEARN")
     page.get_by_role("button",name="Check my word",exact=False).click()
     page.get_by_role("heading",name="You did it.",exact=True).wait_for()
     nav("Learn something")

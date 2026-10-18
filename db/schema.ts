@@ -12,3 +12,7 @@ export const limits = sqliteTable("limits", {id:text("id").primaryKey(),count:in
 
 export const ownerSessions = sqliteTable("owner_sessions", {id:text("id").primaryKey(),email:text("email").notNull(),credentialDigest:text("credential_digest").notNull(),expires:integer("expires").notNull(),created:text("created").notNull()},t=>[index("owner_sessions_expiry").on(t.expires)]);
 export const siteSettings = sqliteTable("site_settings", {id:text("id").primaryKey(),data:text("data").notNull(),updated:text("updated").notNull(),actor:text("actor").notNull()});
+
+export const learnerRewards = sqliteTable("learner_rewards", {
+ id:text("id").primaryKey(),profile:text("profile").notNull().references(()=>records.id,{onDelete:"cascade"}),kind:text("kind").notNull(),xp:integer("xp").notNull().default(0),hints:integer("hints").notNull().default(0),reason:text("reason").notNull(),actor:text("actor").notNull(),created:text("created").notNull(),context:text("context").notNull().default("{}"),
+},t=>[index("learner_rewards_profile").on(t.profile,t.created)]);
