@@ -105,6 +105,13 @@ reviews, and manually awarded certificates. Its access settings keep all members
 in free mode. A future membership price and currency can be saved as a draft;
 paid mode cannot be enabled until a real payment integration is connected.
 
+The **Accounts** tab lists signed-in members independently of learner profiles,
+with search, pagination, available account emails, learner counts, and first/last
+activity. Active recently means a request within five minutes; visible tabs send
+one heartbeat per minute and the directory refreshes every 30 seconds. Guest
+visits remain anonymous. Existing accounts stay visible, but timestamps start
+when activity tracking is enabled; historical sign-in times are not invented.
+
 To configure the owner locally, run `node scripts/configure-owner.mjs` and provide
 the requested JSON through its hidden terminal input. The helper writes only the
 owner email and a salted scrypt hash to ignored, restricted `.env.local`. Configure

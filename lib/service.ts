@@ -1,3 +1,4 @@
+import {rememberAccount} from "./account-activity";
 import {handleOwnerAuth,resolveOwnerSession,ownerIdentityId} from "./owner-auth";
 import {handleRewards,levelReward,wallet} from "./rewards";
 import {handleAdministration} from "./admin-service";
@@ -51,6 +52,7 @@ async function handleRequest(req:Request,ctx:Context):Promise<Response> {
    if(limit.count>35)error("Please wait a minute before trying again.",429);
    if(Math.random()<0.02) await stmt("DELETE FROM limits WHERE id NOT LIKE ? AND id NOT LIKE 'owner-login:%'", "%:"+Math.floor(Date.now()/60000)).run();
   }
+  await rememberAccount(ctx,now);
   const administration=await handleAdministration(req,ctx,()=>body(req));if(administration)return administration;
   const rewards=await handleRewards(req,ctx,()=>body(req));if(rewards)return rewards;
   const assessment=await handleAssessments({req,ctx,path,now,readBody:()=>body(req)});if(assessment)return assessment;
@@ -59,7 +61,6 @@ async function handleRequest(req:Request,ctx:Context):Promise<Response> {
   }
   if(path==="me" && req.method==="GET") {
    if(!user)return json({user:null});
-   await stmt("INSERT INTO users(id,name,role) VALUES(?,?,'member') ON CONFLICT(id) DO UPDATE SET name=excluded.name",user.userId,user.displayName).run();
    const u=await stmt("SELECT * FROM users WHERE id=?",user.userId).first();
    return json({user:{id:user.userId,name:user.displayName,authMethod:user.authMethod||"platform",role:(ctx.adminIds.includes(user.userId)||(user.email&&ctx.adminEmails?.includes(user.email.toLowerCase())))?"admin":u.role},notifications:await all("SELECT * FROM notifications WHERE owner=? ORDER BY created DESC LIMIT 50",user.userId)});
   }

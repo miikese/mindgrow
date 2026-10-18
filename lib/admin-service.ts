@@ -1,3 +1,4 @@
+import {accountDirectory,accountTotals} from "./account-activity";
 import {wallet,requestId} from "./rewards";
 import type {Context,Stored} from "./service";
 import {DEFAULT_ACCESS} from "./access";
@@ -9,6 +10,7 @@ export async function handleAdministration(req:Request,ctx:Context,readBody:()=>
  const user=ctx.user;if(!user)return json({error:"Owner sign-in required."},401);
  const role=await ctx.db.prepare("SELECT role FROM users WHERE id=?").bind(user.userId).first();
  if(!ctx.adminIds.includes(user.userId)&&!(user.email&&ctx.adminEmails?.includes(user.email.toLowerCase()))&&role?.role!=="admin")return json({error:"Only the site owner can use administration."},403);
+ if(path==="admin/accounts"&&req.method==="GET")return json(await accountDirectory(ctx.db,new URL(req.url),new Date().toISOString()));
  if(path==="admin/rewards"&&req.method==="POST"){
   const d=await readBody(),profile=String(d.profile||""),xp=d.xp??0,hints=d.hints??0,reason=typeof d.reason==="string"?d.reason.trim():"";
   if(!Number.isInteger(xp)||xp<0||xp>100000||!Number.isInteger(hints)||hints<0||hints>1000||!(xp||hints)||reason.length<5||reason.length>300)return json({error:"Grant 1–100,000 XP or 1–1,000 hints and give a reason of 5–300 characters."},400);
@@ -43,7 +45,7 @@ export async function handleAdministration(req:Request,ctx:Context,readBody:()=>
   const certified=await ctx.db.prepare("SELECT COUNT(*) AS count FROM records WHERE kind='exam' AND status='certified'").first();
   const learners=await all("SELECT p.id,p.data,p.created, (SELECT COUNT(*) FROM records g WHERE g.kind='progress' AND json_extract(g.data,'$.profile')=p.id) AS sessions, (SELECT COUNT(*) FROM records l WHERE l.kind='lesson' AND json_extract(l.data,'$.profile')=p.id) AS lessons FROM records p WHERE p.kind='profile' ORDER BY p.created DESC LIMIT 200");
   const recent=await all("SELECT id,kind,status,data,created FROM records WHERE kind IN ('progress','lesson','exam') ORDER BY created DESC LIMIT 30");
-  return json({totals:{households:Number(households?.count||0),learners:counts.profile||0,sessions:counts.progress||0,lessons:counts.lesson||0,exams:counts.exam||0,pending:Number(pending?.count||0),certified:Number(certified?.count||0)},learners:await Promise.all(learners.map(async r=>({...r,data:JSON.parse(r.data),wallet:await wallet(ctx.db,r.id)}))),recent:recent.map((r:Stored)=>{const d=JSON.parse(r.data);return{id:r.id,kind:r.kind,status:r.status,created:r.created,profile:d.profile,game:d.game,track:d.track,lesson:d.lesson,level:d.level,score:d.score}})});
+  return json({totals:{...await accountTotals(ctx.db,new Date().toISOString()),households:Number(households?.count||0),learners:counts.profile||0,sessions:counts.progress||0,lessons:counts.lesson||0,exams:counts.exam||0,pending:Number(pending?.count||0),certified:Number(certified?.count||0)},learners:await Promise.all(learners.map(async r=>({...r,data:JSON.parse(r.data),wallet:await wallet(ctx.db,r.id)}))),recent:recent.map((r:Stored)=>{const d=JSON.parse(r.data);return{id:r.id,kind:r.kind,status:r.status,created:r.created,profile:d.profile,game:d.game,track:d.track,lesson:d.lesson,level:d.level,score:d.score}})});
  }
  return json({error:"Administration endpoint not found."},404);
 }
